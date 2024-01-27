@@ -1,0 +1,78 @@
+clear all
+close all
+x = [1 2 3 4 5 7 9 10];  %homogeneous discretised
+y = [1 4 3 6 7 8 13 11];
+
+figure(1)
+hold on
+scatter(x, y, 'red', 'filled')
+%hold on
+%plot(x,y, 'green')
+
+xvec = 0:0.01:20;
+m = ((y(8)-y(1))/((x(8)-x(1))));
+c = 0;
+yvec = m*xvec + c;
+
+figure(1)
+hold on 
+plot(xvec, yvec)
+
+y_line = m*x + c;
+d = abs( y_line - y);
+%hold on
+%scatter(x,y_line, 'blue')
+
+figure(2)
+for c = 0:0.5:4
+    for m = 0:0.2:3
+        y_syn = m*x + c;
+        hold on
+        plot(x,y_syn, 'blue', 'Marker','o','MarkerFaceColor','red')
+
+    end
+end
+
+prev_diff = 1000
+for c = 0:0.5:4
+    for m = 0:0.2:3
+        y_syn = m*x + c;
+        diff = abs( y_syn - y);     %l1 norm
+        diff_tot = sum(diff,"all")
+        if diff_tot < prev_diff
+            prev_diff = diff_tot;
+            m_new = m;
+            c_new = c;
+        end
+    end
+end
+
+figure(1)
+xve = 0:0.01:20;
+yve = m_new*xve + c_new;
+hold on
+plot(xve, yve,'b--')
+
+
+prev_sq_diff1 = 2000
+for c = 0:0.5:4
+    for m = 0:0.2:3
+        y_syn = m*x + c;
+        diff = abs( y_syn - y);
+        sq_diff = diff.^2;                      %l2 norm
+        sq_diff_tot = sum(sq_diff,"all")
+        if sq_diff_tot < prev_sq_diff1
+            prev_sq_diff1 = sq_diff_tot;
+            m_sq = m;
+            c_sq = c;
+        end
+    end
+end
+
+figure(1)
+xv = 0:0.01:20;
+yv = m_sq*xv + c_sq;
+hold on
+plot(xv, yv,'g--')
+
+
