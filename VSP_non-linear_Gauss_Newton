@@ -1,0 +1,128 @@
+% Vertical Seismic Profile Example
+% Using non-linear approach
+%
+
+clear all
+close all
+
+%==== Input Parameters =======
+% Number of sensors (Unitless)
+%N = 10;
+N = 100;
+%N = 1000;
+
+% Depth of first and last sensor (in meters)
+z_inital = 0;
+z_final = 20;
+
+% velocity gradient (v = v0 + kz)
+k = 100;    % in m/s/m
+v0 = 1000; % in m/s
+%=============================
+
+% discretizing the depth vector
+z_points = linspace(z_inital,z_final,N+1);
+sensor_depth = z_points(2:length(z_points));
+sensor_depth = sensor_depth';
+
+% sensor spacing in depth
+dz = z_points(2) - z_points(1);
+
+% creating mid-points for each layer
+for i = 1:N
+    z_mid(i) = z_points(i) + dz/2;
+end
+
+% making design matrix
+G_base = tril(ones(N,N));
+G = G_base * dz;
+
+% making model_true space
+% When our sensor spacing (and hence dz tends to 0) this should be close to
+% the d_exact
+m_true = 1./(v0 + k*z_mid);
+m_true = m_true';
+
+% calculating data_true
+d_true = G * m_true;
+
+%-----------------------
+
+% g(m) non-linear forward model
+% k - scaler; v0 - scaler; z - vector
+gm = @(k,v0,z) (1/k)*(log(v0+k*z) - log(v0));
+
+% Exact solution
+d_exact = gm(k,v0,sensor_depth);
+
+% Let observed be equal to exact model
+d_obs = d_exact;
+% Or add noise to it
+std = .00005; % in seconds
+error = (std)*randn(N,1);
+d_obs = d_exact + error;
+
+%-----------------------
+% partial derivatives
+% for model update using approximate Hessian
+dgdk = @(k,v0,z)-1.0./k.^2.*(log(v0+k.*z)-log(v0))+z./(k.*(v0+k.*z));
+dgdv0 =  @(k,v0,z)(1.0./(v0+k.*z)-1.0./v0)./k;
+
+% Funcitons for second order partial derivative matrix
+% for model update using true Hessian
+% H(m) = hat(G)^T *hat(G) + sum_over_Ndata(g(m)-d)Ki
+d2gdk2 = @(k,v0,z)1.0./k.^3.*(log(v0+k.*z)-log(v0)).*2.0-(1.0./k.^2.*z.*2.0)./(v0+k.*z)-(z.^2.*1.0./(v0+k.*z).^2)./k ;
+d2gdv02 = @(k,v0,z)-1.0./k.^2.*(1.0./(v0+k.*z)-1.0./v0)-(z.*1.0./(v0+k.*z).^2)./k;
+d2gdkdv0 =  @(k,v0,z)-(1.0./(v0+k.*z).^2-1.0./v0.^2)./k;
+d2gdv0dk =  @(k,v0,z)-1.0./k.^2.*(1.0./(v0+k.*z)-1.0./v0)-(z.*1.0./(v0+k.*z).^2)./k;
+
+%-----------------------
+% Initial Guess
+k_initial = 70;
+v0_initial = 700;
+
+% Initial synthetic data points
+d_initial = gm(k_initial,v0_initial,sensor_depth);
+
+% Check (and compare)
+figure
+subplot(1,2,1)
+plot(sensor_depth,d_initial,'xb'); hold on
+plot(sensor_depth,d_true,'or');
+xlabel('sensor depth')
+ylabel('travel-time (sec)')
+%-----------------------
+% iteration block for 'approximate Hessian' non-linear case
+n_iterataion = 5;
+
+m1 = k_initial;
+m2 = v0_initial;
+
+for ii=1:n_iterataion
+    % prepare partial derivative matrix (N X M)
+    Gh(:,1) = dgdk(m1(ii),m2(ii),sensor_depth);
+    Gh(:,2) = dgdv0(m1(ii),m2(ii),sensor_depth);
+    
+    % synthetic model
+    d_ii = gm(m1(ii),m2(ii),sensor_depth);
+    % data residual
+    delta_d(:,ii) = d_obs - d_ii;
+    d_residual(ii) = norm(delta_d(:,ii));
+    
+    % Generalized inverse
+    % using approximate hessian (ignore second order partial derivate
+    % matrix K
+    dm(:,ii) =  inv((transpose(Gh)*Gh))*transpose(Gh)*delta_d(:,ii);
+    
+    % update model
+    m1(ii+1) = m1(ii) + dm(1,ii);
+    m2(ii+1) = m2(ii) + dm(2,ii);
+    plot(sensor_depth,d_ii)
+    text(sensor_depth(end)-5,d_ii(end),sprintf('iteration = %d',ii))
+end
+
+% plot Residual with iteration
+subplot(1,2,2)
+plot(d_residual,'-o')
+xlabel('iteration')
+ylabel('misfit norm')
