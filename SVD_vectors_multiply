@@ -1,0 +1,48 @@
+%svd decomposition
+%dagger
+
+clear all
+close all
+
+origin = [0;0]
+v = [2 ; 1]
+
+G = [2 3; 0.7 0.1]
+b = G*v
+
+c = G'*v
+
+
+figure(1)
+plot([origin(1), v(1)], [origin(2), v(2)],'r')
+hold on
+plot([origin(1), b(1)], [origin(2), b(2)], 'g')
+%hold on
+%plot([origin(1), c(1)], [origin(2), c(2)], 'black')
+
+
+% calculate svd
+[U,S,V] = svd(G)
+
+%plot using svd
+vt = V'*v;
+hold on
+plot([origin(1), vt(1)], [origin(2), vt(2)], 'magenta')
+
+
+d = U*S*V'*v;
+
+hold on
+%plot([origin(1), d(1)], [origin(2), d(2)], 'b')
+
+Ss = S*v; 
+hold on
+plot([origin(1), Ss(1)], [origin(2), Ss(2)], 'b')
+
+Ut = U*v;
+hold on
+plot([origin(1), Ut(1)], [origin(2), Ut(2)], 'y')
+
+%inverse
+Gdagger = V*inv(S)*U'
+Gpinv = pinv(G)       %pseudo inv - use tolerance for singular values
